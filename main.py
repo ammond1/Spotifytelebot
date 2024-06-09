@@ -27,7 +27,7 @@ def get_spotify_client():
     global state
     chatid = os.getenv('MYCHATID')
     if not token_info:
-        print(1)
+        
         state[chatid] = 'auth'
         auth_url = sp_oauth.get_authorize_url()
         msg = f'Authorization needed:{auth_url}'
@@ -40,7 +40,7 @@ sp = get_spotify_client()
 @bot.message_handler(func=lambda message: True and str(message.chat.id) in state and state[str(message.chat.id)] == 'auth')
 def sp_auth_code(message):
     global state
-    print(state, 2)
+    
     chatid = message.chat.id
     bot.send_message(chat_id= chatid, text='Recieved')
     code = message.text
