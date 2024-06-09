@@ -21,19 +21,32 @@ sp_oauth = SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
                         redirect_uri=SPOTIPY_REDIRECT_URI,
                         scope=scope,
                         cache_path=".spotify_token_cache")
-
+state = {}
 def get_spotify_client():
     token_info = sp_oauth.get_cached_token()
+    global state
+    chatid = os.getenv('MYCHATID')
     if not token_info:
+        print(1)
+        state[chatid] = 'auth'
         auth_url = sp_oauth.get_authorize_url()
-        print(f"Please navigate to the following URL to authorize: {auth_url}")
-        # You need to handle the authorization outside the bot (e.g., in a web server).
-        # For now, ask user to authorize manually and get the code.
-        code = input("Enter the code from the URL: ")
-        token_info = sp_oauth.get_access_token(code)
-    return spotipy.Spotify(auth=token_info['access_token'])
+        msg = f'Authorization needed:{auth_url}'
+        bot.send_message(chat_id=chatid, text= msg)
+    else:
+        return spotipy.Spotify(auth=token_info['access_token'])
+        
 sp = get_spotify_client()
 
+@bot.message_handler(func=lambda message: True and str(message.chat.id) in state and state[str(message.chat.id)] == 'auth')
+def sp_auth_code(message):
+    global state
+    print(state, 2)
+    chatid = message.chat.id
+    bot.send_message(chat_id= chatid, text='Recieved')
+    code = message.text
+    state= {}
+    token_info = sp_oauth.get_access_token(code)
+    return spotipy.Spotify(auth=token_info['access_token'])
 
 def add_in(chatid):
     global to_add
@@ -88,10 +101,10 @@ def song_request(chatid):
         'Back' : {'callback_data': 'back'}
     })
     bot.send_message(chat_id=chatid, text= "Please input song choice:", reply_markup= keyboard_markup)
-    state = not state
+    state[str(chatid)] = 'search'
     
 #takes inputted text and searches it 
-@bot.message_handler(func=lambda message: True and state == True)
+@bot.message_handler(func=lambda message: True and str(message.chat.id) in state and state[str(message.chat.id)] == 'search')
 def song_search(message):
     global state
     chatid= message.chat.id
@@ -126,7 +139,7 @@ def song_search(message):
         })
         bot.send_message(chat_id=chatid, text="An error occurred during the search.", reply_markup= keyboard_markup)
         print(f"Error: {e}")
-    state = not state
+    state = {}
 
 #gives description of the app
 def helps(chatid):
@@ -165,7 +178,7 @@ def currently_playing(chatid):
 @bot.message_handler(commands=['start'])
 def start(message):
     global state
-    state = False
+    state = {}
     keyboard_markup = quick_markup({
         'Add Music': {'callback_data' : 'add_music'},
         'View Playlist' : {'callback_data' : 'get_playlist'},
@@ -195,5 +208,4 @@ callback_functions = {
     "currently_playing" : currently_playing,
 }
 to_add=[]
-state = False
 bot.infinity_polling()
